@@ -4,21 +4,40 @@ import { analyzePLO5Hand } from '../claude'
 
 const POSITIONS = ['UTG', 'UTG+1', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']
 
-export default function HandInput({ onBack, onResult }) {
-  const [holeCards, setHoleCards] = useState(Array(5).fill(null))
-  const [boardCards, setBoardCards] = useState(Array(5).fill(null))
-  const [position, setPosition] = useState('BTN')
-  const [vsPosition, setVsPosition] = useState('BB')
-  const [potSize, setPotSize] = useState('')
-  const [stackSize, setStackSize] = useState('')
-  const [actionHistory, setActionHistory] = useState('')
-  const [context, setContext] = useState('')
+function streetLabel(boardCards) {
+  const n = boardCards.filter(Boolean).length
+  if (n === 0) return 'Preflop'
+  if (n <= 3) return 'Flop'
+  if (n === 4) return 'Turn'
+  return 'River'
+}
+
+export default function HandInput({ onBack, onResult, prefill }) {
+  const [holeCards, setHoleCards] = useState(prefill?.holeCards || Array(5).fill(null))
+  const [boardCards, setBoardCards] = useState(prefill?.boardCards || Array(5).fill(null))
+  const [position, setPosition] = useState(prefill?.position || 'BTN')
+  const [vsPositions, setVsPositions] = useState(prefill?.vsPositions || [prefill?.vsPosition || 'BB'])
+  const [potSize, setPotSize] = useState(prefill?.potSize || '')
+  const [stackSize, setStackSize] = useState(prefill?.stackSize || '')
+  const [actionHistory, setActionHistory] = useState(prefill?.actionHistory || '')
+  const [context, setContext] = useState(prefill?.additionalContext || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  const isContinuation = !!prefill
 
   const usedCards = [...holeCards, ...boardCards].filter(Boolean)
   const filledHole = holeCards.filter(Boolean)
   const filledBoard = boardCards.filter(Boolean)
+
+  function toggleVillain(pos) {
+    if (pos === position) return // can't be both hero and villain
+    if (vsPositions.includes(pos)) {
+      if (vsPositions.length > 1) setVsPositions(vsPositions.filter(p => p !== pos))
+    } else if (vsPositions.length < 3) {
+      setVsPositions([...vsPositions, pos])
+    }
+  }
 
   async function handleAnalyze() {
     if (filledHole.length < 5) { setError('Add all 5 hole cards first.'); return }
@@ -26,13 +45,9 @@ export default function HandInput({ onBack, onResult }) {
     setError(null)
     setLoading(true)
     try {
-      const result = await analyzePLO5Hand({
-        holeCards: filledHole,
-        boardCards: filledBoard,
-        position, vsPosition, potSize, stackSize,
-        actionHistory, additionalContext: context,
-      })
-      onResult(result, { holeCards: filledHole, boardCards: filledBoard, position, vsPosition, potSize, stackSize, actionHistory })
+      const data = { holeCards: filledHole, boardCards: filledBoard, position, vsPositions, potSize, stackSize, actionHistory, additionalContext: context }
+      const result = await analyzePLO5Hand(data)
+      onResult(result, data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -40,16 +55,39 @@ export default function HandInput({ onBack, onResult }) {
     }
   }
 
+  function clearAll() {
+    setHoleCards(Array(5).fill(null))
+    setBoardCards(Array(5).fill(null))
+    setPotSize('')
+    setStackSize('')
+    setActionHistory('')
+    setContext('')
+  }
+
   return (
     <div className="screen input-screen">
       <div className="screen-header">
         <button className="back-btn" onClick={onBack}>← Back</button>
-        <h2 className="screen-title">New Hand</h2>
+        <h2 className="screen-title">
+          {isContinuation ? `Continue · ${streetLabel(boardCards)}` : 'New Hand'}
+        </h2>
       </div>
 
       <div className="form">
-        <CardPicker label="Your 5 Hole Cards" cards={holeCards} maxCards={5} onChange={setHoleCards} usedCards={usedCards} />
-        <CardPicker label="Board (skip for preflop)" cards={boardCards} maxCards={5} onChange={setBoardCards} usedCards={usedCards} />
+        <CardPicker
+          label="Your 5 Hole Cards"
+          cards={holeCards}
+          maxCards={5}
+          onChange={setHoleCards}
+          usedCards={usedCards}
+        />
+        <CardPicker
+          label={`Board — ${streetLabel(boardCards)} (skip for preflop)`}
+          cards={boardCards}
+          maxCards={5}
+          onChange={setBoardCards}
+          usedCards={usedCards}
+        />
 
         <div className="field">
           <label className="field-label">Hero Position</label>
@@ -61,10 +99,15 @@ export default function HandInput({ onBack, onResult }) {
         </div>
 
         <div className="field">
-          <label className="field-label">Villain Position</label>
+          <label className="field-label">Villain Position(s) <span style={{ color: '#555', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— tap to add up to 3</span></label>
           <div className="pills">
             {POSITIONS.map(p => (
-              <button key={p} className={`pill ${vsPosition === p ? 'active' : ''}`} onClick={() => setVsPosition(p)}>{p}</button>
+              <button
+                key={p}
+                className={`pill ${vsPositions.includes(p) ? 'active' : ''} ${p === position ? 'pill-disabled' : ''}`}
+                onClick={() => toggleVillain(p)}
+                disabled={p === position}
+              >{p}</button>
             ))}
           </div>
         </div>
@@ -96,9 +139,9 @@ export default function HandInput({ onBack, onResult }) {
           {loading ? 'Analyzing...' : 'Analyze with AI Coach →'}
         </button>
 
-        <button className="btn-ghost" onClick={() => { setHoleCards(Array(5).fill(null)); setBoardCards(Array(5).fill(null)); setPotSize(''); setStackSize(''); setActionHistory(''); setContext('') }}>
-          Clear Hand
-        </button>
+        {!isContinuation && (
+          <button className="btn-ghost" onClick={clearAll}>Clear Hand</button>
+        )}
       </div>
     </div>
   )

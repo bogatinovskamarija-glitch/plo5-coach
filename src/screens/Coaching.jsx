@@ -34,8 +34,7 @@ function parseAnalysis(text) {
     if (!trimmed || trimmed === '---') { flushBullets(); continue }
     if (trimmed.startsWith('### ')) {
       flushBullets()
-      const title = trimmed.replace(/^###\s*\d+\.\s*/, '')
-      blocks.push({ type: 'heading', title })
+      blocks.push({ type: 'heading', title: trimmed.replace(/^###\s*\d+\.\s*/, '') })
       continue
     }
     if (trimmed.startsWith('## ')) {
@@ -54,11 +53,26 @@ function parseAnalysis(text) {
   return blocks
 }
 
-export default function Coaching({ analysis, handData, onNew, onHome }) {
+function nextStreetLabel(boardCount) {
+  if (boardCount === 0) return 'Add Flop'
+  if (boardCount <= 3) return 'Continue to Turn'
+  if (boardCount === 4) return 'Continue to River'
+  return null
+}
+
+export default function Coaching({ analysis, handData, onNew, onHome, onNextStreet }) {
   const blocks = parseAnalysis(analysis)
+  const boardCount = (handData.boardCards || []).filter(Boolean).length
+  const nextLabel = nextStreetLabel(boardCount)
+  const villains = handData.vsPositions || (handData.vsPosition ? [handData.vsPosition] : ['?'])
+
+  function handleNextStreet() {
+    const board = [...(handData.boardCards || Array(5).fill(null))]
+    onNextStreet({ ...handData, boardCards: board })
+  }
 
   function share() {
-    const text = `PLO5 Hand\nHole: ${handData.holeCards.join(' ')}\nBoard: ${handData.boardCards.join(' ') || 'Preflop'}\n\n${analysis}`
+    const text = `PLO5 Hand\nHole: ${handData.holeCards.join(' ')}\nBoard: ${handData.boardCards.filter(Boolean).join(' ') || 'Preflop'}\n\n${analysis}`
     if (navigator.share) {
       navigator.share({ title: 'PLO5 Analysis', text })
     } else {
@@ -80,18 +94,18 @@ export default function Coaching({ analysis, handData, onNew, onHome }) {
             <PlayingCard key={i} card={c} small />
           ))}
         </div>
-        {handData.boardCards.length > 0 && (
+        {handData.boardCards.filter(Boolean).length > 0 && (
           <div className="board-row">
             <span className="board-label">Board</span>
             <div className="card-row">
-              {handData.boardCards.map((c, i) => (
+              {handData.boardCards.filter(Boolean).map((c, i) => (
                 <PlayingCard key={i} card={c} small />
               ))}
             </div>
           </div>
         )}
         <div className="meta-row">
-          <span className="meta">{handData.position} vs {handData.vsPosition}</span>
+          <span className="meta">{handData.position} vs {villains.join(', ')}</span>
           <span className="meta-dot">·</span>
           <span className="meta">{handData.potSize} BB pot</span>
           <span className="meta-dot">·</span>
@@ -131,6 +145,9 @@ export default function Coaching({ analysis, handData, onNew, onHome }) {
       })}
 
       <div className="action-row">
+        {nextLabel && (
+          <button className="btn-street" onClick={handleNextStreet}>{nextLabel} →</button>
+        )}
         <button className="btn-gold" onClick={onNew}>Analyze Another Hand</button>
         <button className="btn-ghost" onClick={share}>Share Analysis</button>
       </div>

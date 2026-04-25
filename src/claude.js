@@ -16,14 +16,24 @@ For every hand analysis, structure your response as:
 Keep responses tight. Dragan doesn't need paragraphs — he needs precision.`;
 
 export async function analyzePLO5Hand(handData) {
-  const { holeCards, boardCards, position, vsPosition, potSize, stackSize, actionHistory, additionalContext } = handData;
+  const { holeCards, boardCards, position, vsPosition, vsPositions, potSize, stackSize, actionHistory, additionalContext } = handData;
+
+  const villains = vsPositions || (vsPosition ? [vsPosition] : ['Unknown'])
+  const villainLine = villains.length > 1
+    ? `- Villain positions: ${villains.join(', ')} (${villains.length + 1}-way pot)`
+    : `- Villain position: ${villains[0]}`
+
+  const filledBoard = (boardCards || []).filter(Boolean)
+  const boardCount = filledBoard.length
+  const street = boardCount === 0 ? 'Preflop' : boardCount <= 3 ? 'Flop' : boardCount === 4 ? 'Turn' : 'River'
 
   const userMessage = `
 Hand for analysis:
 - Hero position: ${position}
-- Villain position: ${vsPosition}
+${villainLine}
+- Street: ${street}
 - Hero hole cards: ${holeCards.join(' ')}
-- Board: ${boardCards.length > 0 ? boardCards.join(' ') : 'Preflop'}
+- Board: ${filledBoard.length > 0 ? filledBoard.join(' ') : 'Preflop'}
 - Pot size: ${potSize} BB
 - Stack: ${stackSize} BB
 - Action: ${actionHistory}
