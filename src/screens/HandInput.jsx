@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CardPicker from '../components/CardPicker'
+import ActionBuilder, { actionsToString } from '../components/ActionBuilder'
 import { analyzePLO5Hand } from '../claude'
 
 const POSITIONS = ['UTG', 'UTG+1', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB']
@@ -12,26 +13,26 @@ function streetLabel(boardCards) {
   return 'River'
 }
 
-export default function HandInput({ onBack, onResult, prefill }) {
-  const [holeCards, setHoleCards] = useState(prefill?.holeCards || Array(5).fill(null))
+export default function HandInput({ onBack, onResult, prefill, gameMode }) {
+  const holeCount = gameMode === 'plo4' ? 4 : 5
+  const [holeCards, setHoleCards] = useState(prefill?.holeCards || Array(holeCount).fill(null))
   const [boardCards, setBoardCards] = useState(prefill?.boardCards || Array(5).fill(null))
   const [position, setPosition] = useState(prefill?.position || 'BTN')
   const [vsPositions, setVsPositions] = useState(prefill?.vsPositions || [prefill?.vsPosition || 'BB'])
   const [potSize, setPotSize] = useState(prefill?.potSize || '')
   const [stackSize, setStackSize] = useState(prefill?.stackSize || '')
-  const [actionHistory, setActionHistory] = useState(prefill?.actionHistory || '')
+  const [actions, setActions] = useState([])
   const [context, setContext] = useState(prefill?.additionalContext || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const isContinuation = !!prefill
-
   const usedCards = [...holeCards, ...boardCards].filter(Boolean)
   const filledHole = holeCards.filter(Boolean)
-  const filledBoard = boardCards.filter(Boolean)
+  const allPositions = [position, ...vsPositions.filter(p => p !== position)]
 
   function toggleVillain(pos) {
-    if (pos === position) return // can't be both hero and villain
+    if (pos === position) return
     if (vsPositions.includes(pos)) {
       if (vsPositions.length > 1) setVsPositions(vsPositions.filter(p => p !== pos))
     } else if (vsPositions.length < 3) {
@@ -40,12 +41,20 @@ export default function HandInput({ onBack, onResult, prefill }) {
   }
 
   async function handleAnalyze() {
-    if (filledHole.length < 5) { setError('Add all 5 hole cards first.'); return }
-    if (!potSize || !stackSize || !actionHistory.trim()) { setError('Fill in pot size, stack size, and the action.'); return }
+    if (filledHole.length < holeCount) { setError(`Add all ${holeCount} hole cards first.`); return }
+    if (!potSize || !stackSize) { setError('Fill in pot size and stack size.'); return }
+    if (actions.length === 0) { setError('Add at least one action.'); return }
     setError(null)
     setLoading(true)
     try {
-      const data = { holeCards: filledHole, boardCards: filledBoard, position, vsPositions, potSize, stackSize, actionHistory, additionalContext: context }
+      const actionHistory = actionsToString(actions)
+      const data = {
+        holeCards: filledHole,
+        boardCards: boardCards.filter(Boolean),
+        position, vsPositions, potSize, stackSize,
+        actionHistory, additionalContext: context,
+        gameMode,
+      }
       const result = await analyzePLO5Hand(data)
       onResult(result, data)
     } catch (err) {
@@ -56,11 +65,11 @@ export default function HandInput({ onBack, onResult, prefill }) {
   }
 
   function clearAll() {
-    setHoleCards(Array(5).fill(null))
+    setHoleCards(Array(holeCount).fill(null))
     setBoardCards(Array(5).fill(null))
     setPotSize('')
     setStackSize('')
-    setActionHistory('')
+    setActions([])
     setContext('')
   }
 
@@ -69,15 +78,17 @@ export default function HandInput({ onBack, onResult, prefill }) {
       <div className="screen-header">
         <button className="back-btn" onClick={onBack}>← Back</button>
         <h2 className="screen-title">
-          {isContinuation ? `Continue · ${streetLabel(boardCards)}` : 'New Hand'}
+          {isContinuation
+            ? `Continue · ${streetLabel(boardCards)}`
+            : `New Hand · ${gameMode === 'plo4' ? 'PLO4' : 'PLO5'}`}
         </h2>
       </div>
 
       <div className="form">
         <CardPicker
-          label="Your 5 Hole Cards"
+          label={`Your ${holeCount} Hole Cards`}
           cards={holeCards}
-          maxCards={5}
+          maxCards={holeCount}
           onChange={setHoleCards}
           usedCards={usedCards}
         />
@@ -99,7 +110,9 @@ export default function HandInput({ onBack, onResult, prefill }) {
         </div>
 
         <div className="field">
-          <label className="field-label">Villain Position(s) <span style={{ color: '#555', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— tap to add up to 3</span></label>
+          <label className="field-label">
+            Villain Position(s) <span style={{ color: '#555', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— tap to add up to 3</span>
+          </label>
           <div className="pills">
             {POSITIONS.map(p => (
               <button
@@ -125,12 +138,22 @@ export default function HandInput({ onBack, onResult, prefill }) {
 
         <div className="field">
           <label className="field-label">Action Sequence</label>
-          <textarea className="input textarea" rows={3} placeholder="e.g. BTN raises 3x, BB calls. Flop: BTN bets 2/3 pot, BB raises pot, BTN?" value={actionHistory} onChange={e => setActionHistory(e.target.value)} />
+          <ActionBuilder
+            value={actions}
+            onChange={setActions}
+            positions={allPositions}
+          />
         </div>
 
         <div className="field">
           <label className="field-label">Extra Context (optional)</label>
-          <textarea className="input textarea" rows={2} placeholder="e.g. Villain is a reg who over-folds to 3-bets, 500NL live game" value={context} onChange={e => setContext(e.target.value)} />
+          <textarea
+            className="input textarea"
+            rows={2}
+            placeholder="e.g. Villain is a reg who over-folds to 3-bets, 500NL live game"
+            value={context}
+            onChange={e => setContext(e.target.value)}
+          />
         </div>
 
         {error && <p className="error">{error}</p>}

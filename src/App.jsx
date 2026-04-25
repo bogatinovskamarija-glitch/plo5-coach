@@ -12,6 +12,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState(null)
   const [handData, setHandData] = useState(null)
   const [prefill, setPrefill] = useState(null)
+  const [gameMode, setGameMode] = useState('plo5')
 
   function showCoaching(result, data) {
     saveHand(data, result)
@@ -38,8 +39,8 @@ export default function App() {
 
   return (
     <div className="app">
-      {screen === 'home'     && <Home onStart={() => startNew()} onHistory={() => setScreen('history')} onNotes={() => setScreen('notes')} />}
-      {screen === 'input'    && <HandInput key={prefill?.id || 'new'} onBack={() => setScreen('home')} onResult={showCoaching} prefill={prefill} />}
+      {screen === 'home'     && <Home onStart={() => startNew()} onHistory={() => setScreen('history')} onNotes={() => setScreen('notes')} gameMode={gameMode} setGameMode={setGameMode} />}
+      {screen === 'input'    && <HandInput key={prefill?.id || 'new'} onBack={() => setScreen('home')} onResult={showCoaching} prefill={prefill} gameMode={gameMode} />}
       {screen === 'coaching' && <Coaching analysis={analysis} handData={handData} onNew={() => startNew()} onHome={() => setScreen('home')} onNextStreet={handleNextStreet} />}
       {screen === 'history'  && <History onBack={() => setScreen('home')} onView={viewFromHistory} />}
       {screen === 'notes'    && <Notes onBack={() => setScreen('home')} />}
