@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --gold: #c8a84b;
+  --gold: #2563eb;
   --bg: #0f0f0f;
   --surface: #161616;
   --surface2: #1e1e1e;

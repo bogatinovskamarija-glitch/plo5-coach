@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PlayingCard from './PlayingCard'
 
 const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
 const SUITS = [
@@ -7,12 +8,6 @@ const SUITS = [
   { symbol: '♦', key: 'd', color: '#e05555' },
   { symbol: '♣', key: 'c', color: '#e0e0e0' },
 ]
-
-function suitColor(card) {
-  if (!card) return '#555'
-  const s = card.slice(-1)
-  return s === 'h' || s === 'd' ? '#e05555' : '#e0e0e0'
-}
 
 export default function CardPicker({ label, cards, maxCards, onChange, usedCards = [] }) {
   const [open, setOpen] = useState(false)
@@ -34,8 +29,7 @@ export default function CardPicker({ label, cards, maxCards, onChange, usedCards
     setOpen(false)
   }
 
-  function removeCard(i, e) {
-    e.stopPropagation()
+  function removeCard(i) {
     const updated = [...cards]
     updated[i] = null
     onChange(updated)
@@ -46,14 +40,13 @@ export default function CardPicker({ label, cards, maxCards, onChange, usedCards
       <label className="field-label">{label}</label>
       <div className="card-row">
         {slots.map((card, i) => (
-          <div key={i} className="card-slot" onClick={() => openPicker(i)}>
-            <div className={`playing-card ${!card ? 'empty' : ''}`} style={{ color: suitColor(card) }}>
-              {card || '+'}
-            </div>
-            {card && (
-              <button className="remove-card" onClick={(e) => removeCard(i, e)}>✕</button>
-            )}
-          </div>
+          <PlayingCard
+            key={i}
+            card={card}
+            empty={!card}
+            onClick={() => openPicker(i)}
+            onRemove={card ? () => removeCard(i) : null}
+          />
         ))}
       </div>
 

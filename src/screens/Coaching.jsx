@@ -1,13 +1,10 @@
+import PlayingCard from '../components/PlayingCard'
+
 const ICONS = {
   'Spot Assessment': '🎯',
   'Hand Strength': '🃏',
   'Line Analysis': '📊',
   'Key Takeaway': '⚡',
-}
-
-function suitColor(card) {
-  if (!card) return '#888'
-  return 'hd'.includes(card.slice(-1)) ? '#e05555' : '#e0e0e0'
 }
 
 function parseAnalysis(text) {
@@ -51,7 +48,7 @@ export default function Coaching({ analysis, handData, onNew, onHome }) {
       <div className="hand-summary">
         <div className="card-row">
           {handData.holeCards.map((c, i) => (
-            <span key={i} className="mini-card" style={{ color: suitColor(c) }}>{c}</span>
+            <PlayingCard key={i} card={c} small />
           ))}
         </div>
         {handData.boardCards.length > 0 && (
@@ -59,7 +56,7 @@ export default function Coaching({ analysis, handData, onNew, onHome }) {
             <span className="board-label">Board</span>
             <div className="card-row">
               {handData.boardCards.map((c, i) => (
-                <span key={i} className="mini-card" style={{ color: suitColor(c) }}>{c}</span>
+                <PlayingCard key={i} card={c} small />
               ))}
             </div>
           </div>
