@@ -7,26 +7,55 @@ const ICONS = {
   'Key Takeaway': '⚡',
 }
 
+function renderInline(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} style={{ color: '#e0e0e0', fontWeight: 700 }}>{part.slice(2, -2)}</strong>
+    }
+    return part
+  })
+}
+
 function parseAnalysis(text) {
-  const sections = []
-  let current = null
-  for (const line of text.split('\n')) {
-    const m = line.match(/^\*\*(.+?)\*\*/)
-    if (m) {
-      if (current) sections.push(current)
-      current = { title: m[1], body: line.replace(/\*\*(.+?)\*\*/, '').replace(/^[\s—:-]+/, '').trim() }
-    } else if (current) {
-      current.body += (current.body ? '\n' : '') + line
-    } else {
-      sections.push({ title: null, body: line })
+  const lines = text.split('\n')
+  const blocks = []
+  let bulletGroup = []
+
+  const flushBullets = () => {
+    if (bulletGroup.length > 0) {
+      blocks.push({ type: 'bullets', items: [...bulletGroup] })
+      bulletGroup = []
     }
   }
-  if (current) sections.push(current)
-  return sections.filter(s => s.body.trim())
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed === '---') { flushBullets(); continue }
+    if (trimmed.startsWith('### ')) {
+      flushBullets()
+      const title = trimmed.replace(/^###\s*\d+\.\s*/, '')
+      blocks.push({ type: 'heading', title })
+      continue
+    }
+    if (trimmed.startsWith('## ')) {
+      flushBullets()
+      blocks.push({ type: 'subtitle', text: trimmed.slice(3) })
+      continue
+    }
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      bulletGroup.push(trimmed.slice(2))
+      continue
+    }
+    flushBullets()
+    blocks.push({ type: 'paragraph', text: trimmed })
+  }
+  flushBullets()
+  return blocks
 }
 
 export default function Coaching({ analysis, handData, onNew, onHome }) {
-  const sections = parseAnalysis(analysis)
+  const blocks = parseAnalysis(analysis)
 
   function share() {
     const text = `PLO5 Hand\nHole: ${handData.holeCards.join(' ')}\nBoard: ${handData.boardCards.join(' ') || 'Preflop'}\n\n${analysis}`
@@ -72,17 +101,34 @@ export default function Coaching({ analysis, handData, onNew, onHome }) {
 
       <div className="divider" />
 
-      {sections.map((s, i) => (
-        <div key={i} className="section">
-          {s.title && (
-            <div className="section-header">
-              <span className="section-icon">{ICONS[s.title] || '▸'}</span>
-              <span className="section-title">{s.title}</span>
+      {blocks.map((block, i) => {
+        if (block.type === 'subtitle') {
+          return <p key={i} className="analysis-subtitle">{renderInline(block.text)}</p>
+        }
+        if (block.type === 'heading') {
+          return (
+            <div key={i} className="section">
+              <div className="section-header">
+                <span className="section-icon">{ICONS[block.title] || '▸'}</span>
+                <span className="section-title">{block.title}</span>
+              </div>
             </div>
-          )}
-          <p className="section-body">{s.body.trim()}</p>
-        </div>
-      ))}
+          )
+        }
+        if (block.type === 'bullets') {
+          return (
+            <ul key={i} className="analysis-bullets">
+              {block.items.map((item, j) => (
+                <li key={j}>{renderInline(item)}</li>
+              ))}
+            </ul>
+          )
+        }
+        if (block.type === 'paragraph') {
+          return <p key={i} className="section-body">{renderInline(block.text)}</p>
+        }
+        return null
+      })}
 
       <div className="action-row">
         <button className="btn-gold" onClick={onNew}>Analyze Another Hand</button>
