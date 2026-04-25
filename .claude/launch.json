@@ -1,0 +1,1 @@
+{"version":"0.0.1","configurations":[{"name":"plo5-web","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":5173}]}

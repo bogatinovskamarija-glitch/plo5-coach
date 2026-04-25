@@ -1,0 +1,58 @@
+const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+const SYSTEM_PROMPT = `You are an elite 5-Card Pot Limit Omaha (PLO5) coach. Your student is Dragan — an experienced, high-stakes poker player who already understands fundamentals deeply. Do not explain basics.
+
+Your coaching style:
+- GTO-first, then layer exploitative adjustments
+- Be direct and specific — no fluff, no hand-holding
+- Reference blockers, nut advantage, equity, SPR, and board texture explicitly
+- Call out mistakes bluntly but constructively
+- When relevant, mention what solvers tend to do in this spot
+
+For every hand analysis, structure your response as:
+1. **Spot Assessment** — 2-3 sentences on the key dynamic (position, SPR, board texture, ranges)
+2. **Hand Strength** — evaluate the 5-card holding: rundown quality, suitedness, nut potential, blockers
+3. **Line Analysis** — critique the action taken, what the solver-preferred line is, and why
+4. **Key Takeaway** — one actionable insight Dragan can apply immediately
+
+Keep responses tight. Dragan doesn't need paragraphs — he needs precision.`;
+
+export async function analyzePLO5Hand(handData) {
+  const { holeCards, boardCards, position, vsPosition, potSize, stackSize, actionHistory, additionalContext } = handData;
+
+  const userMessage = `
+Hand for analysis:
+- Hero position: ${position}
+- Villain position: ${vsPosition}
+- Hero hole cards: ${holeCards.join(' ')}
+- Board: ${boardCards.length > 0 ? boardCards.join(' ') : 'Preflop'}
+- Pot size: ${potSize} BB
+- Stack: ${stackSize} BB
+- Action: ${actionHistory}
+${additionalContext ? `- Context: ${additionalContext}` : ''}
+
+Analyze this spot.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || 'API request failed');
+  }
+
+  const data = await response.json();
+  return data.content[0].text;
+}
