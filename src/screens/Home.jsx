@@ -6,6 +6,7 @@ export default function Home({ onStart, onHistory, onNotes, gameMode, setGameMod
   return (
     <div className="screen home-screen">
       <div className="home-header">
+        <img src="/logo-cards.png" alt="DD Poker" className="home-logo" />
         <h1 className="home-title">DD Poker</h1>
         <p className="home-sub">AI Coach for Dragan</p>
       </div>
